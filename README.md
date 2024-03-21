@@ -15,6 +15,6 @@
 
 
 ## References
-- https://bugzmanov.github.io/nes_ebook/chapter_1.html
+- https://bugzmanov.github.io/nes_ebook
 - https://ltriant.github.io/2019/11/22/nes-emulator.html
 - https://www.nesdev.org/wiki/Nesdev_Wiki
