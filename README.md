@@ -1,6 +1,6 @@
 # CS-128-H-Final-Project
 
-**Group Name:** 
+**Group Name:**  
 **Group Members:**
 - Adarsh Krishnan (adarshk5)
 - Hyunwoo Kim (hyunwoo7)
