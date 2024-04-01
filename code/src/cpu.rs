@@ -229,10 +229,9 @@ impl CPU {
         self.register_a = 0;
         self.register_x = 0;
         self.register_y = 0;
-        self.status = CpuFlags::from_bits_truncate(0b100100);
-        self.program_counter = 0;
         self.stack_pointer = STACK_RESET;
-        self.memory = [0; 0xFFFF];
+        self.status = CpuFlags::from_bits_truncate(0b100100);
+        // self.memory = [0; 0xFFFF];
 
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
@@ -505,8 +504,8 @@ impl CPU {
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000 .. (0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, 0x8000);
+        self.memory[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFC, 0x0600);
     }
  
     pub fn load_and_run(&mut self, program: Vec<u8>) {
@@ -516,35 +515,7 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
-        let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
-
-        loop {
-            let code = self.mem_read(self.program_counter);
-            self.program_counter += 1;
-            let program_counter_state = self.program_counter;
-
-            let opcode = opcodes.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
-
-            match code {
-                0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
-                    self.lda(&opcode.mode);
-                }
-
-                /* STA */
-                0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
-                    self.sta(&opcode.mode);
-                }
-                
-                0xAA => self.tax(),
-                0xe8 => self.inx(),
-                0x00 => return,
-                _ => todo!(),
-            }
-
-            if program_counter_state == self.program_counter {
-                self.program_counter += (opcode.len - 1) as u16;
-            }
-        }
+        self.run_with_callback(|_| {});
     }
 
     pub fn run_with_callback<F>(&mut self, mut callback: F)
@@ -851,7 +822,7 @@ impl CPU {
 
             callback(self);
         }
-    }    
+    }
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
         if result == 0 {
@@ -860,7 +831,7 @@ impl CPU {
             self.status.remove(CpuFlags::ZERO);
         }
 
-        if result & 0b1000_0000 != 0 {
+        if result >> 7 == 1 {
             self.status.insert(CpuFlags::NEGATIV);
         } else {
             self.status.remove(CpuFlags::NEGATIV);

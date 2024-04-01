@@ -17,22 +17,22 @@ extern crate lazy_static;
 extern crate bitflags;
 
 #[macro_use]
-extern crate rand;
+extern crate sdl2;
 
 #[macro_use]
-extern crate sdl2;
+extern crate rand;
 
 fn color(byte: u8) -> Color {
     match byte {
-        0 => sdl2::pixels::Color::RGBA(0, 0, 0, 255), //BLACK
-        1 => sdl2::pixels::Color::RGBA(255, 255, 255, 255), //WHITE
-        2 | 9 => sdl2::pixels::Color::RGBA(128, 128, 128, 255), //GRAY
-        3 | 10 => sdl2::pixels::Color::RGBA(255, 0, 0, 255), //RED
-        4 | 11 => sdl2::pixels::Color::RGBA(0, 255, 0, 255), //GREEN
-        5 | 12 => sdl2::pixels::Color::RGBA(0, 0, 255, 255), //BLUE
-        6 | 13 => sdl2::pixels::Color::RGBA(255, 0, 255, 255), //MAGENTA
-        7 | 14 => sdl2::pixels::Color::RGBA(255, 255, 0, 255), //YELLOW
-        _ => sdl2::pixels::Color::RGBA(0, 255, 255, 255), //CYAN
+        0 => sdl2::pixels::Color::BLACK,
+        1 => sdl2::pixels::Color::WHITE,
+        2 | 9 => sdl2::pixels::Color::GREY,
+        3 | 10 => sdl2::pixels::Color::RED,
+        4 | 11 => sdl2::pixels::Color::GREEN,
+        5 | 12 => sdl2::pixels::Color::BLUE,
+        6 | 13 => sdl2::pixels::Color::MAGENTA,
+        7 | 14 => sdl2::pixels::Color::YELLOW,
+        _ => sdl2::pixels::Color::CYAN,
     }
 }
 
@@ -77,12 +77,6 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
 }
 
 fn main() {
-    #[cfg(target_os="macos")]
-    println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");
-
-    #[cfg(all(target_os = "macos", feature = "use_mac_framework"))]
-    println!("cargo:rustc-link-search=framework=/Library/Frameworks");
-
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
