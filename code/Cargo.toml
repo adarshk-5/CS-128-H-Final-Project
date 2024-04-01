@@ -1,0 +1,12 @@
+[package]
+name = "emul-guys"
+version = "0.1.0"
+
+[dependencies]
+lazy_static = "1.4.0"
+bitflags = "1.2.1"
+rand = "=0.7.3"
+
+[dependencies.sdl2]
+git = "https://github.com/rust-sdl2/rust-sdl2"
+
