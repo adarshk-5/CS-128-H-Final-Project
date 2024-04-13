@@ -30,8 +30,8 @@ extern crate bitflags;
 
 extern crate sdl2;
 
-// #[macro_use]
-// extern crate rand;
+#[macro_use]
+extern crate rand;
 
 fn color(byte: u8) -> Color {
     match byte {
