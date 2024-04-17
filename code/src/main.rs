@@ -5,6 +5,7 @@ pub mod cartridge;
 pub mod trace;
 pub mod ppu;
 pub mod render;
+pub mod joypad;
 
 use cpu::Mem;
 use cpu::CPU;
@@ -22,6 +23,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 // use std::time::Duration;
+use std::collections::HashMap;
 
 #[macro_use]
 extern crate lazy_static;
@@ -65,8 +67,7 @@ fn read_screen_state(cpu: &mut CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
 fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit { .. }
-            | Event::KeyDown {
+            Event::Quit { .. } | Event::KeyDown {
                 keycode: Some(Keycode::Escape),
                 ..
             } => std::process::exit(0),
@@ -124,8 +125,18 @@ fn main() {
 
     let mut frame = Frame::new();
 
+    let mut key_map = HashMap::new();
+    key_map.insert(Keycode::Down, joypad::JoypadButton::DOWN);
+    key_map.insert(Keycode::Up, joypad::JoypadButton::UP);
+    key_map.insert(Keycode::Right, joypad::JoypadButton::RIGHT);
+    key_map.insert(Keycode::Left, joypad::JoypadButton::LEFT);
+    key_map.insert(Keycode::Space, joypad::JoypadButton::SELECT);
+    key_map.insert(Keycode::Return, joypad::JoypadButton::START);
+    key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_A);
+    key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_B);
+
     // run the game cycle
-    let bus = Bus::new(rom, move |ppu: &NesPPU| {
+    let bus = Bus::new(rom, move |ppu: &NesPPU, joypad: &mut joypad::Joypad| {
         render::render(ppu, &mut frame);
         texture.update(None, &frame.data, 256 * 3).unwrap();
 
@@ -134,14 +145,25 @@ fn main() {
         canvas.present();
         for event in event_pump.poll_iter() {
             match event {
-              Event::Quit { .. }
-              | Event::KeyDown {
-                  keycode: Some(Keycode::Escape),
-                  ..
-              } => std::process::exit(0),
-              _ => { /* do nothing */ }
+                Event::Quit { .. } | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => std::process::exit(0),
+ 
+                Event::KeyDown { keycode, .. } => {
+                    if let Some(key) = key_map.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_button_status(*key, true);
+                    }
+                }
+                Event::KeyUp { keycode, .. } => {
+                    if let Some(key) = key_map.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+                        joypad.set_button_status(*key, false);
+                    }
+                }
+ 
+                _ => { /* do nothing */ }
             }
-         }
+        }
     });
 
     let mut cpu = CPU::new(bus);
