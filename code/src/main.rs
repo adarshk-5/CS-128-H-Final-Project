@@ -14,6 +14,7 @@ use cartridge::Rom;
 use trace::trace;
 use render::frame::Frame;
 use render::palette;
+use ppu::NesPPU;
 
 use sdl2::event::Event;
 use sdl2::EventPump;
@@ -29,9 +30,6 @@ extern crate lazy_static;
 extern crate bitflags;
 
 extern crate sdl2;
-
-#[macro_use]
-extern crate rand;
 
 fn color(byte: u8) -> Color {
     match byte {
@@ -124,32 +122,30 @@ fn main() {
     let bytes: Vec<u8> = std::fs::read("pacman.nes").unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
-    let bus = Bus::new(rom);
+    let mut frame = Frame::new();
+
+    // run the game cycle
+    let bus = Bus::new(rom, move |ppu: &NesPPU| {
+        render::render(ppu, &mut frame);
+        texture.update(None, &frame.data, 256 * 3).unwrap();
+
+        canvas.copy(&texture, None, None).unwrap();
+
+        canvas.present();
+        for event in event_pump.poll_iter() {
+            match event {
+              Event::Quit { .. }
+              | Event::KeyDown {
+                  keycode: Some(Keycode::Escape),
+                  ..
+              } => std::process::exit(0),
+              _ => { /* do nothing */ }
+            }
+         }
+    });
+
     let mut cpu = CPU::new(bus);
 
     cpu.reset();
-
-    // cpu.program_counter = 0xC000;
-
-    //let mut screen_state = [0 as u8; 32 * 3 * 32];
-    //let mut rng = rand::thread_rng();
-
-    // run the game cycle
-    cpu.run_with_callback(move |cpu| {
-        println!("{}", trace(cpu));
-        /*
-        handle_user_input(cpu, &mut event_pump);
-
-        cpu.mem_write(0xfe, rng.gen_range(1, 16));
-
-        if read_screen_state(cpu, &mut screen_state) {
-            texture.update(None, &screen_state, 32 * 3).unwrap();
-
-            canvas.copy(&texture, None, None).unwrap();
-
-            canvas.present();
-        }
-
-        ::std::thread::sleep(std::time::Duration::new(0, 70_000)); */
-    });
+    cpu.run();
 }

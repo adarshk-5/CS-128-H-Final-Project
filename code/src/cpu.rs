@@ -28,14 +28,14 @@ bitflags! {
 const STACK: u16 = 0x0100;
 const STACK_RESET: u8 = 0xfd;
 
-pub struct CPU {
+pub struct CPU<'a> {
     pub register_a: u8,
     pub register_x: u8,
     pub register_y: u8,
     pub status: CpuFlags,
     pub program_counter: u16,
     pub stack_pointer: u8,
-    pub bus: Bus,
+    pub bus: Bus<'a>,
 } 
 
 #[derive(Debug)]
@@ -72,7 +72,7 @@ pub trait Mem {
     }    
 }
 
-impl Mem for CPU {
+impl Mem for CPU<'_> {
     fn mem_read(&mut self, addr: u16) -> u8 {
         self.bus.mem_read(addr)
     }
@@ -88,6 +88,7 @@ impl Mem for CPU {
         self.bus.mem_write_u16(addr, data)
     }
 }
+
 fn page_cross(addr1: u16, addr2 : u16) -> bool {
     addr1 & 0xFF00 != addr2 & 0xFF00
 }
@@ -113,8 +114,8 @@ mod interrupt {
     };
 }
  
-impl CPU {
-    pub fn new(bus: Bus) -> Self {
+impl<'a> CPU<'a> {
+    pub fn new<'b>(bus: Bus<'b>) -> CPU<'b> {
         CPU {
             register_a: 0,
             register_x: 0,
@@ -125,6 +126,7 @@ impl CPU {
             bus: bus,
         }
     }
+
 
     pub fn get_absolute_address(&mut self, mode: &AddressingMode, addr: u16) -> u16 {
         match mode {
@@ -185,18 +187,31 @@ impl CPU {
         }
     }
 
+    fn set_register_a(&mut self, value: u8) {
+        self.register_a = value;
+        self.update_zero_and_negative_flags(self.register_a);
+    }
+
+    fn set_register_x(&mut self, value: u8) {
+        self.register_x = value;
+        self.update_zero_and_negative_flags(self.register_x);
+    }
+
+    fn set_register_y(&mut self, value: u8) {
+        self.register_y = value;
+        self.update_zero_and_negative_flags(self.register_y);
+    }
+
     fn ldy(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
-        self.register_y = data;
-        self.update_zero_and_negative_flags(self.register_y);
+        self.set_register_y(data);
     }
 
     fn ldx(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
-        self.register_x = data;
-        self.update_zero_and_negative_flags(self.register_x);
+        self.set_register_x(data);
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
@@ -208,11 +223,6 @@ impl CPU {
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
-    }
-
-    fn set_register_a(&mut self, value: u8) {
-        self.register_a = value;
-        self.update_zero_and_negative_flags(self.register_a);
     }
 
     fn and(&mut self, mode: &AddressingMode) {
@@ -234,8 +244,7 @@ impl CPU {
     }
 
     fn tax(&mut self) {
-        self.register_x = self.register_a;
-        self.update_zero_and_negative_flags(self.register_x);
+        self.set_register_x(self.register_a);
     }
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
@@ -261,13 +270,11 @@ impl CPU {
     }
 
     fn inx(&mut self) {
-        self.register_x = self.register_x.wrapping_add(1);
-        self.update_zero_and_negative_flags(self.register_x);
+        self.set_register_x(self.register_x.wrapping_add(1));
     }
 
     fn iny(&mut self) {
-        self.register_y = self.register_y.wrapping_add(1);
-        self.update_zero_and_negative_flags(self.register_y);
+        self.set_register_y(self.register_y.wrapping_add(1));
     }
 
     pub fn load_and_run(&mut self, program: Vec<u8>) {
@@ -515,13 +522,11 @@ impl CPU {
     }
 
     fn dey(&mut self) {
-        self.register_y = self.register_y.wrapping_sub(1);
-        self.update_zero_and_negative_flags(self.register_y);
+        self.set_register_y(self.register_y.wrapping_sub(1));
     }
 
     fn dex(&mut self) {
-        self.register_x = self.register_x.wrapping_sub(1);
-        self.update_zero_and_negative_flags(self.register_x);
+        self.set_register_x(self.register_x.wrapping_sub(1));
     }
 
     fn dec(&mut self, mode: &AddressingMode) -> u8 {
@@ -884,20 +889,17 @@ impl CPU {
 
                 /* TAY */
                 0xa8 => {
-                    self.register_y = self.register_a;
-                    self.update_zero_and_negative_flags(self.register_y);
+                    self.set_register_y(self.register_a);
                 }
 
                 /* TSX */
                 0xba => {
-                    self.register_x = self.stack_pointer;
-                    self.update_zero_and_negative_flags(self.register_x);
+                    self.set_register_x(self.stack_pointer);
                 }
 
                 /* TXA */
                 0x8a => {
-                    self.register_a = self.register_x;
-                    self.update_zero_and_negative_flags(self.register_a);
+                    self.set_register_a(self.register_x);
                 }
 
                 /* TXS */
@@ -907,8 +909,7 @@ impl CPU {
 
                 /* TYA */
                 0x98 => {
-                    self.register_a = self.register_y;
-                    self.update_zero_and_negative_flags(self.register_a);
+                    self.set_register_a(self.register_y);
                 }
 
                 /* unofficial */
@@ -1070,8 +1071,7 @@ impl CPU {
 
                 /* XAA */
                 0x8b => {
-                    self.register_a = self.register_x;
-                    self.update_zero_and_negative_flags(self.register_a);
+                    self.set_register_a(self.register_x);
                     let addr = self.get_operand_address(&opcode.mode);
                     let data = self.mem_read(addr);
                     self.and_with_register_a(data);
@@ -1152,10 +1152,11 @@ impl CPU {
 mod test {
     use super::*;
     use crate::cartridge::test;
+    use crate::ppu::NesPPU;
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
-        let bus = Bus::new(test::test_rom());
+        let mut bus = Bus::new(test::test_rom(), |ppu: &NesPPU| {});
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
         assert_eq!(cpu.register_a, 5);
@@ -1165,7 +1166,7 @@ mod test {
 
     #[test]
     fn test_0xaa_tax_move_a_to_x() {
-        let bus = Bus::new(test::test_rom());
+        let bus = Bus::new(test::test_rom(), |ppu: &NesPPU| {});
         let mut cpu = CPU::new(bus);
         cpu.register_a = 10;
         cpu.load_and_run(vec![0xaa, 0x00]);
@@ -1175,7 +1176,7 @@ mod test {
 
     #[test]
     fn test_5_ops_working_together() {
-        let bus = Bus::new(test::test_rom());
+        let bus = Bus::new(test::test_rom(), |ppu: &NesPPU| {});
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
 
@@ -1184,7 +1185,7 @@ mod test {
 
     #[test]
     fn test_inx_overflow() {
-        let bus = Bus::new(test::test_rom());
+        let bus = Bus::new(test::test_rom(), |ppu: &NesPPU| {});
         let mut cpu = CPU::new(bus);
         cpu.register_x = 0xff;
         cpu.load_and_run(vec![0xe8, 0xe8, 0x00]);
@@ -1194,7 +1195,7 @@ mod test {
 
     #[test]
     fn test_lda_from_memory() {
-        let bus = Bus::new(test::test_rom());
+        let bus = Bus::new(test::test_rom(), |ppu: &NesPPU| {});
         let mut cpu = CPU::new(bus);
         cpu.mem_write(0x10, 0x55);
 
