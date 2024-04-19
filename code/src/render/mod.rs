@@ -3,23 +3,29 @@ pub mod palette;
 
 use crate::ppu::NesPPU;
 use crate::cartridge::Mirroring;
-use self::frame::Frame;
+use frame::Frame;
 
-fn bg_palette(ppu: &NesPPU, attribute_table: &[u8], tile_column: usize, tile_row : usize) -> [u8;4] {
-    let attr_table_idx = tile_row / 4 * 8 +  tile_column / 4;
+fn bg_palette(ppu: &NesPPU, attribute_table: &[u8], tile_column: usize, tile_row: usize) -> [u8; 4] {
+    let attr_table_idx = tile_row / 4 * 8 + tile_column / 4;
     let attr_byte = attribute_table[attr_table_idx]; 
- 
-    let palette_idx = match (tile_column %4 / 2, tile_row % 4 / 2) {
-        (0,0) => attr_byte & 0b11,
-        (1,0) => (attr_byte >> 2) & 0b11,
-        (0,1) => (attr_byte >> 4) & 0b11,
-        (1,1) => (attr_byte >> 6) & 0b11,
-        (_,_) => panic!("should not happen"),
+
+    let palette_idx = match (tile_column % 4 / 2, tile_row % 4 / 2) {
+        (0, 0) => attr_byte & 0b11,
+        (1, 0) => (attr_byte >> 2) & 0b11,
+        (0, 1) => (attr_byte >> 4) & 0b11,
+        (1, 1) => (attr_byte >> 6) & 0b11,
+        (_, _) => panic!("should not happen"),
     };
- 
-    let palette_start: usize = 1 + (palette_idx as usize)*4;
-    [ppu.palette_table[0], ppu.palette_table[palette_start], ppu.palette_table[palette_start+1], ppu.palette_table[palette_start+2]]
+
+    let palette_start: usize = 1 + (palette_idx as usize) * 4;
+    [
+        ppu.palette_table[0],
+        ppu.palette_table[palette_start],
+        ppu.palette_table[palette_start + 1],
+        ppu.palette_table[palette_start + 2],
+    ]
 }
+
 
 fn sprite_palette(ppu: &NesPPU, palette_idx: u8) -> [u8; 4] {
     let start = 0x11 + (palette_idx * 4) as usize;
@@ -35,7 +41,7 @@ struct Area {
     x1: usize,
     y1: usize,
     x2: usize,
-    y2: usize
+    y2: usize,
 }
 
 impl Area {
@@ -49,7 +55,8 @@ impl Area {
     }
 }
 
-fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8], view_port: Area, shift_x: isize, shift_y: isize) {
+fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8], 
+    view_port: Area, shift_x: isize, shift_y: isize) {
     let bank = ppu.ctrl.bknd_pattern_addr();
 
     let attribute_table = &name_table[0x3c0.. 0x400];
@@ -70,10 +77,10 @@ fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8], view_po
                 upper = upper >> 1;
                 lower = lower >> 1;
                 let rgb = match value {
-                    0 => palette::SYSTEM_PALLETE[ppu.palette_table[0] as usize],
-                    1 => palette::SYSTEM_PALLETE[palette[1] as usize],
-                    2 => palette::SYSTEM_PALLETE[palette[2] as usize],
-                    3 => palette::SYSTEM_PALLETE[palette[3] as usize],
+                    0 => palette::SYSTEM_PALETTE[ppu.palette_table[0] as usize],
+                    1 => palette::SYSTEM_PALETTE[palette[1] as usize],
+                    2 => palette::SYSTEM_PALETTE[palette[2] as usize],
+                    3 => palette::SYSTEM_PALETTE[palette[3] as usize],
                     _ => panic!("can't be"),
                 };
                 let pixel_x = tile_column * 8 + x;
@@ -88,10 +95,10 @@ fn render_name_table(ppu: &NesPPU, frame: &mut Frame, name_table: &[u8], view_po
 }
 
 pub fn render(ppu: &NesPPU, frame: &mut Frame) {
-   let scroll_x = (ppu.scroll.scroll_x) as usize;
-   let scroll_y = (ppu.scroll.scroll_y) as usize;
+    let scroll_x = (ppu.scroll.scroll_x) as usize;
+    let scroll_y = (ppu.scroll.scroll_y) as usize;
 
-   let (main_nametable, second_nametable) = match (&ppu.mirroring, ppu.ctrl.nametable_addr()) {
+    let (main_nametable, second_nametable) = match (&ppu.mirroring, ppu.ctrl.nametable_addr()) {
         (Mirroring::VERTICAL, 0x2000) | (Mirroring::VERTICAL, 0x2800) | (Mirroring::HORIZONTAL, 0x2000) | (Mirroring::HORIZONTAL, 0x2400) => {
             (&ppu.vram[0..0x400], &ppu.vram[0x400..0x800])
         }
@@ -103,12 +110,23 @@ pub fn render(ppu: &NesPPU, frame: &mut Frame) {
         }
     };
 
-    render_name_table(ppu, frame, main_nametable, Area::new(scroll_x, scroll_y, 256, 240), -(scroll_x as isize), -(scroll_y as isize));
-
+    render_name_table(ppu, frame, 
+        main_nametable, 
+        Area::new(scroll_x, scroll_y, 256, 240 ),
+        -(scroll_x as isize), -(scroll_y as isize)
+    );
     if scroll_x > 0 {
-        render_name_table(ppu, frame, second_nametable, Area::new(0, 0, scroll_x, 240), (256 - scroll_x) as isize, 0);
+        render_name_table(ppu, frame, 
+            second_nametable, 
+            Area::new(0, 0, scroll_x, 240),
+            (256 - scroll_x) as isize, 0
+        );
     } else if scroll_y > 0 {
-        render_name_table(ppu, frame, second_nametable, Area::new(0, 0, 256, scroll_y), 0, (240 - scroll_y) as isize);
+        render_name_table(ppu, frame, 
+            second_nametable, 
+            Area::new(0, 0, 256, scroll_y),
+            0, (240 - scroll_y) as isize
+        );
     }
 
     for i in (0..ppu.oam_data.len()).step_by(4).rev() {
@@ -142,9 +160,9 @@ pub fn render(ppu: &NesPPU, frame: &mut Frame) {
                 lower = lower >> 1;
                 let rgb = match value {
                     0 => continue 'call, // skip coloring the pixel
-                    1 => palette::SYSTEM_PALLETE[sprite_palette[1] as usize],
-                    2 => palette::SYSTEM_PALLETE[sprite_palette[2] as usize],
-                    3 => palette::SYSTEM_PALLETE[sprite_palette[3] as usize],
+                    1 => palette::SYSTEM_PALETTE[sprite_palette[1] as usize],
+                    2 => palette::SYSTEM_PALETTE[sprite_palette[2] as usize],
+                    3 => palette::SYSTEM_PALETTE[sprite_palette[3] as usize],
                     _ => panic!("can't be"),
                 };
                 match (flip_horizontal, flip_vertical) {
@@ -163,5 +181,5 @@ pub fn render(ppu: &NesPPU, frame: &mut Frame) {
                 }
             }
         }
-    } 
+    }
 }
