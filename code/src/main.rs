@@ -1,3 +1,4 @@
+#![allow(unused)]
 pub mod bus;
 pub mod cartridge;
 pub mod cpu;
@@ -7,21 +8,18 @@ pub mod ppu;
 pub mod render;
 pub mod trace;
 
+use std::env;
 use bus::Bus;
 use cartridge::Rom;
-use cpu::Mem;
 use cpu::CPU;
 use ppu::NesPPU;
 use render::frame::Frame;
-use render::palette;
-use trace::trace;
+//use trace::trace;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
-use sdl2::EventPump;
-// use std::time::Duration;
+use std::path::Path;
 use std::collections::HashMap;
 
 #[macro_use]
@@ -31,11 +29,18 @@ extern crate lazy_static;
 extern crate bitflags;
 
 fn main() {
+    // accept user input for rom path
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 || !args[1].clone().ends_with(".nes") || !(Path::new(&args[1].clone()).exists()) {
+        println!("Proper usage is cargo run [filepath]. Make sure your file ends with .nes");
+        return;
+    }
+    
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
-        .window("Tile viewer", (256.0 * 4.0) as u32, (240.0 * 2.0) as u32)
+        .window("Emulator", (256.0 * 4.0) as u32, (240.0 * 2.0) as u32)
         .position_centered()
         .build()
         .unwrap();
@@ -50,8 +55,7 @@ fn main() {
         .unwrap();
 
     //load the game
-    let bytes: Vec<u8> = std::fs::read("supermariobros.nes").unwrap();
-    // let bytes: Vec<u8> = std::fs::read("pacman.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read(args[1].clone()).unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
     let mut frame = Frame::new();
@@ -103,6 +107,7 @@ fn main() {
     let mut cpu = CPU::new(bus);
     cpu.reset();
     cpu.run_with_callback(|cpu| {
+        // used for testing purposes, currently commented out
         // println!("{}", trace(cpu));
     });
 }
